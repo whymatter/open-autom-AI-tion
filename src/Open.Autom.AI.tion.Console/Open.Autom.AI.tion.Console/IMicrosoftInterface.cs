@@ -4,12 +4,21 @@ namespace Open.Autom.AI.tion.Console;
 /// The users that are also called colleagues.
 /// </summary>
 /// <param name="Email"></param>
-/// <param name="Name"></param>
+/// <param name="Name">Attention, check names always fuzzy.</param>
 public record User(
     string Email,
     string Name
 );
 
+/// <summary>
+/// 
+/// </summary>
+/// <param name="Id"></param>
+/// <param name="Name"></param>
+/// <param name="Description"></param>
+/// <param name="Start">The start of the meeting, inclusive.</param>
+/// <param name="End">The end of the meeting, inclusive.</param>
+/// <param name="Attendees"></param>
 public record Meeting(
     string Id,
     string Name,
@@ -45,26 +54,8 @@ public interface IMicrosoftInterface
     );
 
     /// <summary>
-    /// Fetches the meeting record for the meeting with the specified id.
+    /// Gets all meetings for the user..
     /// </summary>
-    /// <param name="id">The id of the meeting to fetch.</param>
-    /// <returns>The fetched meeting object.</returns>
-    Task<Meeting> GetMeeting(string id);
-
-    /// <summary>
-    /// Fetches the meeting record for the meeting with the specified id.
-    /// </summary>
-    /// <param name="start">
-    /// Optional filter for the start time.
-    /// If included only meetings that start at or after are returned.
-    /// </param>
-    /// <param name="end">
-    /// Optional filter for the end time.
-    /// If included only meetings that end at or before are returned.
-    /// </param>
     /// <returns>The fetched meeting objects.</returns>
-    Task<ICollection<Meeting>> SearchMeetings(
-        DateTime? start = null,
-        DateTime? end = null
-    );
+    Task<ICollection<Meeting>> GetMeetings();
 }

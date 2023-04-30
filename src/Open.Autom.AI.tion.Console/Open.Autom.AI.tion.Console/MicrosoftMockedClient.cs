@@ -1,10 +1,10 @@
 namespace Open.Autom.AI.tion.Console;
 
-public class MicrosoftClient : IMicrosoftInterface
+public class MicrosoftMockedClient : IMicrosoftInterface
 {
-    public async Task<ICollection<User>> GetColleagues()
+    public Task<ICollection<User>> GetColleagues()
     {
-        return new List<User>
+        return Task.FromResult<ICollection<User>>(new List<User>
         {
             new(Email: "oliver.seitz@digatus.com",
                 Name: "Oliver Seitz"),
@@ -12,7 +12,7 @@ public class MicrosoftClient : IMicrosoftInterface
                 Name: "Andre Kimmer"),
             new(Email: "florian.bernd@digatus.com",
                 Name: "Florian Bernd")
-        };
+        });
     }
 
     public async Task<Meeting> CreateMeeting(string name, string description, DateTime start, DateTime end,
@@ -25,14 +25,9 @@ public class MicrosoftClient : IMicrosoftInterface
         return meeting;
     }
 
-    public Task<Meeting> GetMeeting(string id)
+    public Task<ICollection<Meeting>> GetMeetings()
     {
-        throw new NotImplementedException();
-    }
-
-    public async Task<ICollection<Meeting>> SearchMeetings(DateTime? start = null, DateTime? end = null)
-    {
-        return new List<Meeting>
+        return Task.FromResult<ICollection<Meeting>>(new List<Meeting>
         {
             new(
                 Id: "748594835",
@@ -41,6 +36,6 @@ public class MicrosoftClient : IMicrosoftInterface
                 Start: new DateTime(2023, 04, 26, 13, 0, 0),
                 End: new DateTime(2023, 04, 26, 14, 0, 0),
                 Attendees: new List<User>())
-        };
+        });
     }
 }
