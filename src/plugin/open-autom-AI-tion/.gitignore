@@ -1,6 +1,8 @@
 # NODE
 node_modules
 
+.env
+
 # VS CODE
 .vscode/*
 !.vscode/settings.json
