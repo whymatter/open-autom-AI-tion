@@ -40,6 +40,6 @@ public class MicrosoftMockedClient : IMicrosoftInterface
                     new("oliver.seitz@digatus.com", "Oliver Seitz"),
                     new("florian.bernd@digatus.com", "Florian Bernd")
                 })
-        };
+        });
     }
 }
