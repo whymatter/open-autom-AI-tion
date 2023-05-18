@@ -1,12 +1,13 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System.Reflection;
+using System.Text;
 using Azure;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.Configuration;
 using Open.Autom.AI.tion.Console;
 
-Console.OutputEncoding = System.Text.Encoding.Unicode;
+Console.OutputEncoding = Encoding.Unicode;
 
 Console.WriteLine(" 👋 Hi there,");
 Console.WriteLine("  I am an Lilly, your OpenAI based virtual assistant.");
@@ -51,6 +52,8 @@ var graphServiceClient = await GraphServiceClientFactory.Get(msOptions);
 var microsoftClient = new MicrosoftGraphClient(graphServiceClient);
 Console.WriteLine(" ✅ Authentication successful");
 Console.WriteLine("");
+
+await new CalendarExporter(graphServiceClient).ExportAsync();
 
 var compiler = new Compiler();
 
