@@ -3,23 +3,26 @@
 using System.Reflection;
 using Azure;
 using Azure.AI.OpenAI;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Configuration;
 using Open.Autom.AI.tion.Console;
 
-Console.WriteLine("Hi 👋🏽");
-Console.WriteLine("I am a OpenAI based Virtual Assistant.");
-Console.WriteLine("Ask me anything and I will do my best to answer!");
+Console.OutputEncoding = System.Text.Encoding.Unicode;
+
+Console.WriteLine(" 👋 Hi there,");
+Console.WriteLine("  I am an Lilly, your OpenAI based virtual assistant.");
+Console.WriteLine("  You can ask me anything and I will do my best to answer!");
 
 var configurationRoot = new ConfigurationBuilder()
     .AddJsonFile("appsettings.Development.json")
     .Build();
 
-var options = new OpenAiOptions(string.Empty, string.Empty, string.Empty);
-configurationRoot.GetSection("OpenAI").Bind(options);
+var openAiOptions = new OpenAiOptions(string.Empty, string.Empty, string.Empty);
+configurationRoot.GetSection("OpenAI").Bind(openAiOptions);
 
-var context = """
+var msOptions = new MicrosoftOptions(string.Empty, string.Empty);
+configurationRoot.GetSection("Microsoft").Bind(msOptions);
+
+const string context = """
 //You are a virtual assistant for a user.
 //The user will ask you a question that you have to answer.
 //The question stands directly after the code block.
@@ -31,7 +34,28 @@ var context = """
 
 var code = File.ReadAllText("IMicrosoftInterface.cs");
 
-var openAiClient = new OpenAIClient(new Uri(options.Endpoint), new AzureKeyCredential(options.Key));
+// Initialize OpenAI
+var openAiClient = new OpenAIClient(new Uri(openAiOptions.Endpoint), new AzureKeyCredential(openAiOptions.Key));
+
+// Initialize Microsoft
+Console.WriteLine("");
+Console.WriteLine(" For the start, I need you to grant me access to your account.");
+Console.WriteLine(" 🤔 Are you okay with that?");
+
+var grantChecker = new OpenAiGrantChecker(openAiClient, openAiOptions);
+var interactiveGrantChecker = new InteractiveGrantChecker(grantChecker);
+
+await interactiveGrantChecker.GetAsync("Are you okay with that?", require: true);
+
+Console.WriteLine(" 🔐 Great, thanks, starting authentication");
+var graphServiceClient = await GraphServiceClientFactory.Get(msOptions);
+var microsoftClient = new MicrosoftGraphClient(graphServiceClient);
+Console.WriteLine(" ✅ Authentication successful");
+Console.WriteLine("");
+
+var compiler = new Compiler();
+
+Console.WriteLine("Now you can ask me for help!");
 
 while (true)
 {
@@ -44,9 +68,9 @@ while (true)
         continue;
     }
 
-    Console.WriteLine(" 🤔 Let me try to come up with an answer!");
+    Console.WriteLine(" 🤔 Thinking...");
 
-    var response = openAiClient.GetCompletions(options.ModelName, new CompletionsOptions
+    var response = openAiClient.GetCompletions(openAiOptions.ModelName, new CompletionsOptions
     {
         Temperature = 0,
         ChoicesPerPrompt = 1,
@@ -66,11 +90,17 @@ while (true)
     }
 
     var choice = response.Value.Choices[0].Text.Trim();
-    var generatedCode = $"public static async Task<string> Answer(IMicrosoftInterface ms) {{{choice}";
+    var generatedCode = $"public static async Task<string> Answer(IMicrosoftInterface ms) {{\n{choice}";
     var assemblyCode = FormatAssembly(generatedCode);
-    Console.WriteLine(assemblyCode);
 
-    var assembly = Compile(assemblyCode);
+    var foregroundColor = Console.ForegroundColor;
+    Console.ForegroundColor = ConsoleColor.DarkGray;
+    Console.WriteLine("");
+    Console.WriteLine($"    {string.Join("\n    ", assemblyCode.Split("\n"))}");
+    Console.WriteLine("");
+    Console.ForegroundColor = foregroundColor;
+
+    var assembly = compiler.Compile(assemblyCode);
 
     if (assembly == null) continue;
 
@@ -78,7 +108,7 @@ while (true)
         .GetType("OpenGenerated.OpenGeneratedClass")!
         .GetMethod("Answer", BindingFlags.Public | BindingFlags.Static)!;
 
-    var answerObject = answerMethodInfo.Invoke(null, new object?[] { new MicrosoftClient() });
+    var answerObject = answerMethodInfo.Invoke(null, new object?[] { microsoftClient });
     if (answerObject is Task<string> answerStringTask)
     {
         var answerString = await answerStringTask;
@@ -100,6 +130,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Open.Autom.AI.tion.Console;
+
 namespace OpenGenerated;
 
 public static class OpenGeneratedClass {
@@ -107,64 +138,3 @@ public static class OpenGeneratedClass {
 }
 """;
 }
-
-IEnumerable<MetadataReference> GetGlobalReferences()
-{
-    var returnList = new List<MetadataReference>();
-
-    var assemblyPath = Path.GetDirectoryName(typeof(object).Assembly.Location);
-
-    returnList.Add(MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "mscorlib.dll")));
-    returnList.Add(MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.dll")));
-    returnList.Add(MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Core.dll")));
-    returnList.Add(MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Linq.dll")));
-    returnList.Add(MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Collections.dll")));
-    returnList.Add(MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Runtime.dll")));
-    returnList.Add(MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Private.CoreLib.dll")));
-
-    returnList.Add(MetadataReference.CreateFromFile(typeof(IMicrosoftInterface).Assembly.Location));
-
-    return returnList;
-}
-
-Assembly? Compile(string code)
-{
-    var syntaxTree = CSharpSyntaxTree.ParseText(code);
-    var assemblyName = Path.GetRandomFileName();
-
-    MetadataReference[] references =
-    {
-        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-        MetadataReference.CreateFromFile(typeof(Task).Assembly.Location),
-        MetadataReference.CreateFromFile(Assembly.GetCallingAssembly().Location),
-    };
-
-    var compilation = CSharpCompilation.Create(
-        assemblyName,
-        syntaxTrees: new[] { syntaxTree },
-        references: GetGlobalReferences(),
-        options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-
-    using var ms = new MemoryStream();
-    var emitResult = compilation.Emit(ms);
-
-    if (!emitResult.Success)
-    {
-        var failures = emitResult.Diagnostics.Where(diagnostic =>
-            diagnostic.IsWarningAsError ||
-            diagnostic.Severity == DiagnosticSeverity.Error);
-
-        foreach (var diagnostic in failures)
-        {
-            Console.Error.WriteLine("{0}: {1}", diagnostic.Id, diagnostic.GetMessage());
-        }
-
-        return null;
-    }
-
-    ms.Seek(0, SeekOrigin.Begin);
-
-    return Assembly.Load(ms.ToArray());
-}
-
-record OpenAiOptions(string Endpoint, string Key, string ModelName);
