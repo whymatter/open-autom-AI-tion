@@ -40,7 +40,11 @@ public class MicrosoftClient : IMicrosoftInterface
                 Description: "Want to talk to you",
                 Start: new DateTime(2023, 04, 26, 13, 0, 0),
                 End: new DateTime(2023, 04, 26, 14, 0, 0),
-                Attendees: new List<User>())
+                Attendees: new List<User>
+                {
+                    new("oliver.seitz@digatus.com", "Oliver Seitz"),
+                    new("florian.bernd@digatus.com", "Florian Bernd")
+                })
         };
     }
 }

@@ -32,15 +32,15 @@ public interface IMicrosoftInterface
     /// </summary>
     /// <param name="name">Name of the meeting.</param>
     /// <param name="description">Description of the meeting.</param>
-    /// <param name="start">Start of the meeting.</param>
-    /// <param name="end">End of the meeting.</param>
+    /// <param name="startDateTime">Start of the meeting. Including Date and Time.</param>
+    /// <param name="endDateTime">End of the meeting. Including Date and Time.</param>
     /// <param name="attendees">List of email addresses of the attending Users.</param>
     /// <returns>The meeting that was created.</returns>
     Task<Meeting> CreateMeeting(
         string name,
         string description,
-        DateTime start,
-        DateTime end,
+        DateTime startDateTime,
+        DateTime endDateTime,
         List<string> attendees
     );
 
