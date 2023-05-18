@@ -30,6 +30,7 @@ const string context = """
 //You must not return the answer directly in form of text.
 //Instead you are supposed to return the body of a function with the following signature "Task<string> answer(IMicrosoftInterface ms);".
 //The return value of this function has to be the answer you intend to give to the user.
+//The working hours are from 8am to 5pm.
 """;
 
 var code = File.ReadAllText("IMicrosoftInterface.cs");
