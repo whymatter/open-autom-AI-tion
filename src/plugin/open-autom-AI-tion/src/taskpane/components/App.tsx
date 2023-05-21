@@ -237,7 +237,7 @@ export default (props) => {
       content: "This is a list of events Oliver has in his calendar." +
         "The format of the list is CSV." + 
         "The first row containes the headers." +
-        "Today is the 21.05.2023." +
+        "Today is Monday the 22.05.2023." +
         "\n\n###\n" + msEventsCsv + "\n###"
     };
 
