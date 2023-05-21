@@ -103,5 +103,19 @@
         <bt:String id="ActionButton.Tooltip" DefaultValue="Perform an action when clicked."/>
       </bt:LongStrings>
     </Resources>
+    <WebApplicationInfo>
+      <Id>190eef54-a433-424c-9ee7-bc358732792c</Id>
+      <Resource>api://localhost:3000/190eef54-a433-424c-9ee7-bc358732792c</Resource>
+      <Scopes>
+        <Scope>Mail.Read</Scope>
+        <Scope>Mail.Read.Shared</Scope>
+        <Scope>Calendars.Read</Scope>
+        <Scope>Calendars.Read.Shared</Scope>
+        <Scope>User.Read</Scope>
+        <Scope>User.ReadBasic.All</Scope>
+        <Scope>profile</Scope>
+        <Scope>openid</Scope>
+      </Scopes>
+    </WebApplicationInfo>
   </VersionOverrides>
 </OfficeApp>

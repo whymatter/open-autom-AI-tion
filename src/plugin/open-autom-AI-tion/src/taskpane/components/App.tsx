@@ -1,10 +1,38 @@
 import * as React from "react";
-import { DefaultButton, TextField } from "@fluentui/react";
+import { TextField } from "@fluentui/react";
 import Progress from "./Progress";
 import { useCallback, useEffect } from "react";
 import { KeyboardEvent } from "react";
 import { useState } from "react";
 import config from "../../config/config";
+import { Client } from "@microsoft/microsoft-graph-client";
+import { getAccessTokenMSAL } from "../../auth/fallbackAuthTaskpane";
+import moment from "moment";
+
+interface ODataResponse<T> {
+  "@odata.context": string,
+  "@odata.nextLink": string,
+  "value": Array<T>
+}
+
+interface CalendarReponse {
+  id: string,
+  subject: string,
+  start: CalendarReponseDate,
+  end: CalendarReponseDate
+}
+
+interface CalendarReponseDate {
+  dateTime: string,
+  timeZone: string
+}
+
+interface CalendarEvent {
+  id: string,
+  subject: string,
+  start: string,
+  end: string
+}
 
 async function queryOpenAi(messages: { role: string, content: string }[]) {
   const { endpoint, key, model } = config;
@@ -82,6 +110,8 @@ export default (props) => {
 
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [msAccessToken, setMsAccessToken] = useState("");
+  const [msEvents, setMsEvents] = useState<Array<CalendarEvent>>(null);
   const [messages, setMessages] = useState([
     {
       role: "system",
@@ -90,6 +120,10 @@ export default (props) => {
     {
       role: "system",
       content: "If you provide the content of a draft email, enclose it with three stars."
+    },
+    {
+      role: "system",
+      content: "For emails try not to use the phrase: I hope this email finds you well. Or similar phrases."
     }
   ]);
 
@@ -101,7 +135,7 @@ export default (props) => {
 
     console.log("Get content of email.")
 
-    Office.context.mailbox.item?.body.getAsync(Office.CoercionType.Text,
+    Office.context?.mailbox?.item?.body.getAsync(Office.CoercionType.Text,
       (data: Office.AsyncResult<string>) => {
         console.log("Got content of email.");
 
@@ -109,7 +143,7 @@ export default (props) => {
 
         const message = {
           role: "system",
-          content: `The current email he needs help with has the following content.\n\n###\n${data.value}\n###`
+          content: `This is the content of an email Oliver received.\n\n###\n${data.value}\n###`
         }
 
         setMessages(m => [...m, message]);
@@ -117,6 +151,100 @@ export default (props) => {
 
     return () => { exited = true; };
   }, []);
+
+  useEffect(() => {
+    const x = async () => {
+      try {
+        const accessToken = await Office.auth.getAccessToken({
+          allowSignInPrompt: true,
+          allowConsentPrompt: true,
+          forMSGraphAccess: true
+        });
+
+        setMsAccessToken(accessToken);
+      } catch (error) {
+        if (![13001, 13002, 13006, 13008, 13010].includes(error.code)) {
+          console.log('Fallback to MSAL Auth');
+          try {
+            const accessToken = await getAccessTokenMSAL();
+            setMsAccessToken(accessToken);
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      }
+    };
+
+    x();
+  }, []);
+
+  useEffect(() => {
+    if (msAccessToken == null || msAccessToken === "") return;
+
+    const x = async () => {
+      const client = Client.initWithMiddleware({
+        authProvider: {
+          getAccessToken: async () => msAccessToken
+        },
+      });
+
+      const events: Array<CalendarEvent> = [];
+
+      const mapEvents = (events: Array<CalendarReponse>) =>
+        events.map(o => ({
+          id: o.id,
+          subject: o.subject,
+          start: moment(o.start.dateTime).local().add("hours", 2).toISOString(true),
+          end: moment(o.end.dateTime).local().add("hours", 2).toISOString(true)
+        } as CalendarEvent));
+
+      const start = moment(Date()).subtract("days", 1);
+      const end = moment(Date()).add("days", 14);
+
+      const response = await client
+        .api("/me/calendarview")
+        .query(`startdatetime=${start.toISOString()}&enddatetime=${end.toISOString()}`)
+        .get() as ODataResponse<CalendarReponse>;
+
+      events.push(...mapEvents(response.value));
+
+      let nextLink = response["@odata.nextLink"];
+
+      while (nextLink != null && nextLink !== "") {
+        const response = await client
+          .api(nextLink)
+          .get() as ODataResponse<CalendarReponse>;
+
+        events.push(...mapEvents(response.value));
+        nextLink = response["@odata.nextLink"];
+      }
+
+      setMsEvents(events);
+    };
+
+    x();
+  }, [msAccessToken]);
+
+  useEffect(() => {
+    if (msEvents == null) return;
+
+    const header = "subject;startDateTime;endDateTime";
+    const body = msEvents.map(o => `${o.subject};${o.start.replace(".000+02:00", "")};${o.end.replace(".000+02:00", "")}`).join("\n");
+    const msEventsCsv = `${header}\n${body}`;
+
+    const msEventsMessage = {
+      role: "system",
+      content: "This is a list of events Oliver has in his calendar." +
+        "The format of the list is CSV." + 
+        "The first row containes the headers." +
+        "Today is the 21.05.2023." +
+        "\n\n###\n" + msEventsCsv + "\n###"
+    };
+
+    console.log(msEventsMessage.content);
+
+    setMessages(m => [...m, msEventsMessage]);
+  }, [msEvents]);
 
   const onKeyDown = useCallback(async (e: KeyboardEvent) => {
     if (e.code === 'Enter') {
@@ -154,6 +282,10 @@ export default (props) => {
 
   return (
     <div>
+      <h1>Hi Oliver,</h1>
+      <span>I am Lilly, here to help you.</span>
+      {msAccessToken == "" ? <p>Authenticating ...</p> : null}
+      {msEvents == null ? <p>Loading events ...</p> : null}
       <TextField className="query-input" placeholder="Ask me anything" onKeyDown={onKeyDown} onChange={onChange} value={query}></TextField>
       <div className="message-list">
         {
